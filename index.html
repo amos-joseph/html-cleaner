@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTML Cleaner</title>
+<link rel="icon" href="data:,">
+<script type="importmap">
+{
+  "imports": {
+    "@tiptap/core": "https://esm.sh/@tiptap/core@3.32.0?external=@tiptap/pm",
+    "@tiptap/core/jsx-runtime": "https://esm.sh/@tiptap/core@3.32.0/jsx-runtime?external=@tiptap/pm",
+    "@tiptap/pm/": "https://esm.sh/@tiptap/pm@3.32.0/",
+    "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@3.32.0?external=@tiptap/core,@tiptap/pm",
+    "@tiptap/extension-link": "https://esm.sh/@tiptap/extension-link@3.32.0?external=@tiptap/core,@tiptap/pm",
+    "@tiptap/extension-image": "https://esm.sh/@tiptap/extension-image@3.32.0?external=@tiptap/core,@tiptap/pm",
+    "@tiptap/extension-subscript": "https://esm.sh/@tiptap/extension-subscript@3.32.0?external=@tiptap/core,@tiptap/pm",
+    "@tiptap/extension-superscript": "https://esm.sh/@tiptap/extension-superscript@3.32.0?external=@tiptap/core,@tiptap/pm",
+    "@tiptap/extension-table": "https://esm.sh/@tiptap/extension-table@3.32.0?external=@tiptap/core,@tiptap/pm"
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body { font: 14px/1.5 system-ui, -apple-system, sans-serif; background: #1e1f22; color: #dfe1e5; }
+  button, select, input { font: inherit; color: inherit; }
+  button, select { cursor: pointer; }
+  button:disabled { cursor: default; opacity: .4; }
+  :focus-visible { outline: 2px solid #8c8f94; outline-offset: -2px; }
+
+  .app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
+
+  /* App bar */
+  .appbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 10px; background: #2b2d30; border-bottom: 1px solid #111; }
+  .appbar .title { font-weight: 600; margin-right: 12px; }
+  .appbar .grow { flex: 1; }
+  .btn { background: #3c3f41; border: 1px solid #4e5157; border-radius: 4px; padding: 3px 10px; font-size: 13px; }
+  .btn:hover { background: #45484b; }
+  .btn.on { background: #4e5157; }
+  .btn.primary { background: #3574f0; border-color: #3574f0; color: #fff; }
+  .btn.primary:hover { background: #4682f5; }
+  .seg { display: inline-flex; border: 1px solid #4e5157; border-radius: 4px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #2b2d30; padding: 3px 10px; font-size: 13px; }
+  .seg button.on { background: #4e5157; }
+
+  /* Paste strip */
+  .pastestrip { display: flex; align-items: stretch; border-bottom: 1px solid #111; background: #26282b; }
+  .pastestrip .lbl { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 6px 4px; background: #2b2d30; color: #8c8f94; text-align: center; }
+  .paste { flex: 1; min-width: 0; height: 120px; overflow: auto; padding: 8px 12px; background: #fff; color: #1d1d1f; position: relative; }
+  .paste:empty::before { content: attr(data-placeholder); color: #999; }
+  .paste.plain { white-space: pre-wrap; }
+
+  /* Output */
+  .main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  #source { flex: 1; min-height: 0; width: 100%; border: 0; resize: none; margin: 0; background: #1e1f22; color: #bcbec4; padding: 12px 16px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; tab-size: 2; }
+  #source:focus { outline: none; }
+  .wys { flex: 1; min-height: 0; overflow: auto; background: #fff; color: #1d1d1f; padding: 16px 24px; }
+  .wys .ProseMirror { min-height: 100%; outline: none; }
+
+  /* Rendered content (paste area and WYSIWYG) */
+  .rendered table { border-collapse: collapse; }
+  .rendered td, .rendered th { border: 1px solid #ccc; padding: 2px 6px; vertical-align: top; min-width: 2em; }
+  .rendered td > p, .rendered th > p { margin: 0; }
+  .rendered img { max-width: 100%; }
+  .rendered blockquote { margin-left: 0; padding-left: 12px; border-left: 3px solid #ccc; color: #444; }
+  .rendered pre { background: #f4f4f5; padding: 8px 10px; border-radius: 4px; overflow: auto; }
+  .rendered code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  .wys img[src=""] { display: inline-block; min-width: 80px; min-height: 40px; background: #f0f0f0; outline: 2px dashed #aaa; vertical-align: middle; }
+  .wys img.ProseMirror-selectednode { outline: 2px solid #3574f0; }
+  .wys .selectedCell { background: #e3ebfb; }
+
+  /* WYSIWYG toolbar */
+  .tb { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; background: #2b2d30; padding: 3px 6px; border-bottom: 1px solid #111; }
+  .tb button, .tb select { border: 1px solid transparent; background: none; padding: 3px 7px; border-radius: 4px; font-size: 13px; color: #dfe1e5; min-width: 28px; }
+  .tb select { background: #3c3f41; border-color: #4e5157; }
+  .tb button:hover:not(:disabled) { background: #3c3f41; border-color: #4e5157; }
+  .tb button.on { background: #4e5157; border-color: #5e6167; }
+  .tb .sep { width: 1px; height: 20px; background: #4e5157; margin: 0 4px; }
+
+  /* Debug drawer */
+  .drawer { height: 170px; flex: none; border-top: 1px solid #111; display: flex; flex-direction: column; }
+  .drawer .dh { background: #2b2d30; padding: 3px 10px; font-size: 12px; color: #8c8f94; }
+  .drawer textarea { flex: 1; width: 100%; border: 0; resize: none; margin: 0; background: #161719; color: #8c8f94; padding: 8px 16px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* Status bar: always the app-bar grey; warnings only get a ⚠ and brighter text */
+  .status { display: flex; gap: 16px; padding: 3px 10px; background: #2b2d30; border-top: 1px solid #111; color: #8c8f94; font-size: 12px; white-space: nowrap; }
+  .status .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .status #st-warnings { color: #dfe1e5; }
+
+  /* Dialogs */
+  dialog { background: #2b2d30; color: #dfe1e5; border: 1px solid #4e5157; border-radius: 6px; padding: 16px; width: min(420px, 90vw); }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  dialog h2 { margin: 0 0 12px; font-size: 15px; }
+  dialog label { display: block; margin-bottom: 10px; font-size: 13px; color: #bcbec4; }
+  dialog input[type=text] { display: block; width: 100%; margin-top: 4px; padding: 5px 8px; background: #1e1f22; border: 1px solid #4e5157; border-radius: 4px; }
+  dialog .actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="appbar">
+    <span class="title">HTML Cleaner</span>
+    <div class="seg" role="group" aria-label="Output view">
+      <button type="button" data-view="source" class="on" aria-pressed="true">Source</button>
+      <button type="button" data-view="wysiwyg" aria-pressed="false">WYSIWYG</button>
+    </div>
+    <span class="grow"></span>
+    <button type="button" class="btn" id="reclean" title="Run the cleaner on the current Source contents">Re-clean</button>
+    <button type="button" class="btn" id="clear" title="Reset the paste area and output">Clear</button>
+    <button type="button" class="btn" id="debug" aria-pressed="false" title="Show the raw clipboard HTML">Debug</button>
+    <button type="button" class="btn primary" id="copy">Copy HTML</button>
+  </header>
+
+  <section class="pastestrip">
+    <div class="lbl" aria-hidden="true">Paste</div>
+    <div id="paste" class="paste rendered" contenteditable="true" role="textbox" aria-label="Paste area" data-placeholder="Click here and paste (⌘V / Ctrl+V)"></div>
+  </section>
+
+  <main class="main">
+    <div id="toolbar" class="tb" role="toolbar" aria-label="Formatting" hidden>
+      <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+      <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+      <button type="button" data-cmd="underline" title="Underline"><u>U</u></button>
+      <button type="button" data-cmd="strike" title="Strikethrough"><s>S</s></button>
+      <button type="button" data-cmd="subscript" title="Subscript">x₂</button>
+      <button type="button" data-cmd="superscript" title="Superscript">x²</button>
+      <button type="button" data-cmd="code" title="Inline code">&lt;/&gt;</button>
+      <span class="sep"></span>
+      <select id="block-type" title="Block type" aria-label="Block type">
+        <option value="p">Paragraph</option>
+        <option value="1">Heading 1</option>
+        <option value="2">Heading 2</option>
+        <option value="3">Heading 3</option>
+        <option value="4">Heading 4</option>
+        <option value="5">Heading 5</option>
+        <option value="6">Heading 6</option>
+      </select>
+      <button type="button" data-cmd="blockquote" title="Blockquote">❝</button>
+      <button type="button" data-cmd="codeBlock" title="Code block">{ }</button>
+      <button type="button" data-cmd="hr" title="Horizontal rule">―</button>
+      <span class="sep"></span>
+      <button type="button" data-cmd="bulletList" title="Bulleted list">•≡</button>
+      <button type="button" data-cmd="orderedList" title="Numbered list">1≡</button>
+      <button type="button" data-cmd="indent" title="Indent">→|</button>
+      <button type="button" data-cmd="outdent" title="Outdent">|←</button>
+      <span class="sep"></span>
+      <button type="button" data-cmd="link" title="Add or edit link">🔗</button>
+      <button type="button" data-cmd="unlink" title="Remove link">⛓︎̸</button>
+      <button type="button" data-cmd="image" title="Insert or edit image">🖼</button>
+      <span class="sep"></span>
+      <button type="button" data-cmd="insertTable" title="Insert table">▦</button>
+      <button type="button" data-cmd="addRow" title="Add row">+row</button>
+      <button type="button" data-cmd="deleteRow" title="Delete row">−row</button>
+      <button type="button" data-cmd="addColumn" title="Add column">+col</button>
+      <button type="button" data-cmd="deleteColumn" title="Delete column">−col</button>
+      <button type="button" data-cmd="mergeSplit" title="Merge or split cells">⊞</button>
+      <button type="button" data-cmd="headerRow" title="Toggle header row">H̲</button>
+      <span class="sep"></span>
+      <button type="button" data-cmd="undo" title="Undo">↶</button>
+      <button type="button" data-cmd="redo" title="Redo">↷</button>
+      <button type="button" data-cmd="clearMarks" title="Clear formatting">T̸</button>
+    </div>
+    <textarea id="source" spellcheck="false" aria-label="HTML source" placeholder="Cleaned HTML appears here"></textarea>
+    <div id="wysiwyg" class="wys rendered" hidden></div>
+  </main>
+
+  <section id="drawer" class="drawer" hidden>
+    <div class="dh">RAW CLIPBOARD HTML — save as tests/fixtures/&lt;name&gt;.input.html</div>
+    <textarea id="raw" readonly spellcheck="false" aria-label="Raw clipboard HTML"></textarea>
+  </section>
+
+  <footer class="status" aria-live="polite">
+    <span>Source: <span id="st-source">—</span></span>
+    <span id="st-stats">0 lines · 0 chars</span>
+    <span id="st-warnings" class="grow"></span>
+    <span id="st-view">SOURCE</span>
+  </footer>
+</div>
+
+<dialog id="link-dialog">
+  <form method="dialog">
+    <h2>Link</h2>
+    <label>URL <input type="text" name="href" placeholder="https://" autocomplete="off"></label>
+    <label>Title <input type="text" name="title" autocomplete="off"></label>
+    <label><input type="checkbox" name="newTab"> Open in new tab</label>
+    <div class="actions">
+      <button type="submit" class="btn" value="cancel">Cancel</button>
+      <button type="submit" class="btn primary" value="ok">Apply</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="image-dialog">
+  <form method="dialog">
+    <h2>Image</h2>
+    <label>Image URL <input type="text" name="src" placeholder="https://" autocomplete="off"></label>
+    <label>Alt text <input type="text" name="alt" autocomplete="off"></label>
+    <div class="actions">
+      <button type="submit" class="btn" value="cancel">Cancel</button>
+      <button type="submit" class="btn primary" value="ok">Apply</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { clean, cleanHtml, cleanText, detectSource, listDisallowed } from './cleaner.js';
+
+const $ = id => document.getElementById(id);
+const pasteEl = $('paste');
+const sourceEl = $('source');
+const wysiwygEl = $('wysiwyg');
+const toolbarEl = $('toolbar');
+
+const state = {
+  view: 'source',
+  output: '',      // the cleaned HTML; in Source view the textarea is the truth
+  raw: '',         // raw clipboard data, for the debug drawer
+  source: '',      // detected source of the last paste
+  switchLoss: [],  // what the last Source → WYSIWYG switch dropped
+  editorError: '',
+};
+
+// ===================== Editor (loaded from the CDN; the rest works without it) =====================
+
+let editor = null;
+const editorReady = (async () => {
+  const [{ Editor }, { StarterKit }, { Link }, { Image }, { Subscript }, { Superscript }, { Table, TableRow, TableHeader, TableCell }] = await Promise.all([
+    import('@tiptap/core'),
+    import('@tiptap/starter-kit'),
+    import('@tiptap/extension-link'),
+    import('@tiptap/extension-image'),
+    import('@tiptap/extension-subscript'),
+    import('@tiptap/extension-superscript'),
+    import('@tiptap/extension-table'),
+  ]);
+  editor = new Editor({
+    element: wysiwygEl,
+    extensions: [
+      StarterKit.configure({ link: false, trailingNode: false }),
+      Link.extend({
+        addAttributes() {
+          return { ...this.parent?.(), title: { default: null } };
+        },
+      }).configure({ openOnClick: false, autolink: false, linkOnPaste: false, HTMLAttributes: { rel: null, target: null, class: null } }),
+      Image.configure({ inline: true }),
+      Subscript,
+      Superscript,
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
+    ],
+    onUpdate: () => {
+      // Safety net: whatever the editor emits goes back through the cleaner.
+      state.output = clean(editor.getHTML());
+      sourceEl.value = state.output;
+      updateStatus();
+    },
+    onTransaction: updateToolbar,
+  });
+  return editor;
+})().catch(err => {
+  console.error(err);
+  state.editorError = 'WYSIWYG editor could not load (it needs internet access)';
+  updateStatus();
+  return null;
+});
+
+function loadIntoEditor(html) {
+  editor.commands.setContent(html, { emitUpdate: false });
+  state.output = clean(editor.getHTML());
+  sourceEl.value = state.output;
+}
+
+// ===================== Output =====================
+
+function currentOutput() {
+  return state.view === 'source' ? sourceEl.value : state.output;
+}
+
+function setOutput(html) {
+  state.output = html;
+  sourceEl.value = html;
+  if (state.view === 'wysiwyg' && editor) loadIntoEditor(html);
+  updateStatus();
+}
+
+async function setView(view) {
+  if (view === state.view) return;
+  if (view === 'wysiwyg') {
+    if (!(await editorReady)) return;
+    state.switchLoss = listDisallowed(sourceEl.value);
+    state.view = 'wysiwyg';
+    loadIntoEditor(sourceEl.value);
+  } else {
+    state.view = 'source';
+    sourceEl.value = state.output;
+  }
+  for (const b of document.querySelectorAll('[data-view]')) {
+    b.classList.toggle('on', b.dataset.view === view);
+    b.setAttribute('aria-pressed', String(b.dataset.view === view));
+  }
+  sourceEl.hidden = view !== 'source';
+  wysiwygEl.hidden = toolbarEl.hidden = view !== 'wysiwyg';
+  updateStatus();
+  updateToolbar();
+}
+
+function updateStatus() {
+  const out = currentOutput();
+  const lines = out ? out.replace(/\n$/, '').split('\n').length : 0;
+  $('st-source').textContent = state.source || '—';
+  $('st-stats').textContent = `${lines} line${lines === 1 ? '' : 's'} · ${out.length} char${out.length === 1 ? '' : 's'}`;
+  $('st-view').textContent = state.view.toUpperCase();
+
+  const warnings = [];
+  const emptied = (out.match(/<img\b[^>]*\ssrc=(""|'')/gi) || []).length;
+  if (emptied) warnings.push(`${emptied} image${emptied === 1 ? ' has' : 's have'} an emptied src (local or embedded file) — add a real URL`);
+  if (state.switchLoss.length) warnings.push(`Switching views removed: ${state.switchLoss.join(', ')}`);
+  if (state.editorError) warnings.push(state.editorError);
+  const text = warnings.map(w => `⚠ ${w}`).join('   ');
+  $('st-warnings').textContent = text;
+  $('st-warnings').title = text;
+}
+
+// ===================== Paste area =====================
+
+// The paste area shows the original rendering, minus anything active, positioned or page-wide.
+// Attributes are whitelisted so pasted names and ids can't clobber document properties.
+const PREVIEW_ATTRS = new Set(['style', 'src', 'alt', 'colspan', 'rowspan', 'align', 'valign', 'width', 'height', 'start', 'type']);
+function showPasted(html, text) {
+  pasteEl.classList.toggle('plain', !html);
+  if (!html) {
+    pasteEl.textContent = text;
+    return;
+  }
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('script, style, link, meta, base, title, iframe, frame, object, embed, svg, math, form, input, button, select, textarea').forEach(el => el.remove());
+  for (const el of doc.body.querySelectorAll('*')) {
+    for (const { name, value } of [...el.attributes]) {
+      const safeSrc = name !== 'src' || /^https?:/i.test(value.replace(/[\s\u0000-\u001f]+/g, ''));
+      if (!PREVIEW_ATTRS.has(name) || !safeSrc) el.removeAttribute(name);
+    }
+    if (el.hasAttribute('style')) el.setAttribute('style', el.getAttribute('style').replace(/(^|;)\s*position\s*:[^;]*/gi, '$1'));
+  }
+  pasteEl.replaceChildren(...doc.body.childNodes);
+}
+
+function ingest(html, text) {
+  if (!html && !text) return;
+  state.raw = html || text;
+  state.source = html ? detectSource(html) : 'Plain text';
+  state.switchLoss = [];
+  $('raw').value = state.raw;
+  showPasted(html, text);
+  setOutput(html ? cleanHtml(html).html : cleanText(text).html);
+}
+
+pasteEl.addEventListener('paste', e => {
+  e.preventDefault();
+  ingest(e.clipboardData.getData('text/html'), e.clipboardData.getData('text/plain'));
+});
+pasteEl.addEventListener('drop', e => {
+  e.preventDefault();
+  ingest(e.dataTransfer.getData('text/html'), e.dataTransfer.getData('text/plain'));
+});
+
+// ===================== App bar =====================
+
+for (const b of document.querySelectorAll('[data-view]')) b.addEventListener('click', () => setView(b.dataset.view));
+
+sourceEl.addEventListener('input', () => {
+  // Hand edits are kept exactly as typed.
+  state.output = sourceEl.value;
+  updateStatus();
+});
+
+$('reclean').addEventListener('click', () => {
+  state.switchLoss = [];
+  setOutput(clean(currentOutput()));
+});
+
+$('clear').addEventListener('click', () => {
+  pasteEl.replaceChildren();
+  pasteEl.classList.remove('plain');
+  Object.assign(state, { raw: '', source: '', switchLoss: [] });
+  $('raw').value = '';
+  setOutput('');
+});
+
+$('debug').addEventListener('click', e => {
+  const drawer = $('drawer');
+  drawer.hidden = !drawer.hidden;
+  e.currentTarget.classList.toggle('on', !drawer.hidden);
+  e.currentTarget.setAttribute('aria-pressed', String(!drawer.hidden));
+});
+
+let copiedTimer;
+$('copy').addEventListener('click', async e => {
+  const button = e.currentTarget;
+  const text = currentOutput();
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const t = document.createElement('textarea');
+    t.value = text;
+    document.body.append(t);
+    t.select();
+    document.execCommand('copy');
+    t.remove();
+  }
+  button.textContent = 'Copied!';
+  clearTimeout(copiedTimer);
+  copiedTimer = setTimeout(() => { button.textContent = 'Copy HTML'; }, 1200);
+});
+
+// ===================== WYSIWYG toolbar =====================
+
+const COMMANDS = {
+  bold: c => c.toggleBold(),
+  italic: c => c.toggleItalic(),
+  underline: c => c.toggleUnderline(),
+  strike: c => c.toggleStrike(),
+  subscript: c => c.toggleSubscript(),
+  superscript: c => c.toggleSuperscript(),
+  code: c => c.toggleCode(),
+  blockquote: c => c.toggleBlockquote(),
+  codeBlock: c => c.toggleCodeBlock(),
+  hr: c => c.setHorizontalRule(),
+  bulletList: c => c.toggleBulletList(),
+  orderedList: c => c.toggleOrderedList(),
+  indent: c => c.sinkListItem('listItem'),
+  outdent: c => c.liftListItem('listItem'),
+  unlink: c => c.extendMarkRange('link').unsetLink(),
+  insertTable: c => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }),
+  addRow: c => c.addRowAfter(),
+  deleteRow: c => c.deleteRow(),
+  addColumn: c => c.addColumnAfter(),
+  deleteColumn: c => c.deleteColumn(),
+  mergeSplit: c => c.mergeOrSplit(),
+  headerRow: c => c.toggleHeaderRow(),
+  undo: c => c.undo(),
+  redo: c => c.redo(),
+  clearMarks: c => c.unsetAllMarks(),
+};
+// Toolbar buttons that light up when their mark or node is active.
+const ACTIVE = { bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strike', subscript: 'subscript', superscript: 'superscript', code: 'code', blockquote: 'blockquote', codeBlock: 'codeBlock', bulletList: 'bulletList', orderedList: 'orderedList', link: 'link' };
+
+toolbarEl.addEventListener('mousedown', e => {
+  // Keep the editor selection while clicking buttons.
+  if (e.target.closest('button')) e.preventDefault();
+});
+toolbarEl.addEventListener('click', e => {
+  const button = e.target.closest('button[data-cmd]');
+  if (!button || !editor) return;
+  const cmd = button.dataset.cmd;
+  if (cmd === 'link') openLinkDialog();
+  else if (cmd === 'image') openImageDialog();
+  else COMMANDS[cmd](editor.chain().focus()).run();
+});
+
+$('block-type').addEventListener('change', e => {
+  const value = e.target.value;
+  const chain = editor.chain().focus();
+  (value === 'p' ? chain.setParagraph() : chain.setHeading({ level: Number(value) })).run();
+});
+
+function updateToolbar() {
+  if (!editor || state.view !== 'wysiwyg') return;
+  for (const button of toolbarEl.querySelectorAll('button[data-cmd]')) {
+    const cmd = button.dataset.cmd;
+    if (ACTIVE[cmd]) button.classList.toggle('on', editor.isActive(ACTIVE[cmd]));
+    if (COMMANDS[cmd]) button.disabled = !COMMANDS[cmd](editor.can().chain()).run();
+  }
+  const level = [1, 2, 3, 4, 5, 6].find(l => editor.isActive('heading', { level: l }));
+  $('block-type').value = level ? String(level) : 'p';
+}
+
+// ===================== Link and image dialogs =====================
+
+function openDialog(dialog, values, onApply) {
+  const form = dialog.querySelector('form');
+  for (const [name, value] of Object.entries(values)) {
+    const input = form.elements[name];
+    if (input.type === 'checkbox') input.checked = value;
+    else input.value = value;
+  }
+  dialog.onclose = () => {
+    if (dialog.returnValue === 'ok') onApply(form.elements);
+    dialog.returnValue = '';
+  };
+  dialog.showModal();
+  form.querySelector('input[type=text]').select();
+}
+
+function openLinkDialog() {
+  const attrs = editor.getAttributes('link');
+  openDialog($('link-dialog'), { href: attrs.href || '', title: attrs.title || '', newTab: attrs.target === '_blank' }, f => {
+    const href = f.href.value.trim();
+    const chain = editor.chain().focus().extendMarkRange('link');
+    if (!href) { chain.unsetLink().run(); return; }
+    const link = { href, title: f.title.value.trim() || null, target: f.newTab.checked ? '_blank' : null };
+    if (editor.state.selection.empty && !editor.isActive('link')) {
+      chain.insertContent({ type: 'text', text: href, marks: [{ type: 'link', attrs: link }] }).run();
+    } else {
+      chain.setLink(link).run();
+    }
+  });
+}
+
+function openImageDialog() {
+  const editing = editor.isActive('image');
+  const attrs = editing ? editor.getAttributes('image') : {};
+  openDialog($('image-dialog'), { src: attrs.src || '', alt: attrs.alt || '' }, f => {
+    const image = { src: f.src.value.trim(), alt: f.alt.value.trim() };
+    const chain = editor.chain().focus();
+    (editing ? chain.updateAttributes('image', image) : chain.setImage(image)).run();
+  });
+}
+
+updateStatus();
+</script>
+</body>
+</html>

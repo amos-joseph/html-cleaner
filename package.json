@@ -1,0 +1,18 @@
+{
+  "name": "html-cleaner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Paste content from a web page, Word, or Google Docs and get clean, basic HTML.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "http-server . -c-1 -p 8080",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "jsdom": "^30.1.3"
+  }
+}
