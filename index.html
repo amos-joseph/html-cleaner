@@ -46,11 +46,17 @@
   .seg button.on { background: #4e5157; }
 
   /* Paste strip */
-  .pastestrip { display: flex; align-items: stretch; border-bottom: 1px solid #111; background: #26282b; }
+  .pastestrip { display: flex; align-items: stretch; background: #26282b; flex: none; }
   .pastestrip .lbl { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 6px 4px; background: #2b2d30; color: #8c8f94; text-align: center; }
-  .paste { flex: 1; min-width: 0; height: 120px; overflow: auto; padding: 8px 12px; background: #fff; color: #1d1d1f; position: relative; }
+  .paste { flex: 1; min-width: 0; height: var(--paste-height, 120px); overflow: auto; padding: 8px 12px; background: #fff; color: #1d1d1f; position: relative; }
   .paste:empty::before { content: attr(data-placeholder); color: #999; }
   .paste.plain { white-space: pre-wrap; }
+
+  /* Drag bar between the paste strip and the output */
+  .splitter { flex: none; height: 6px; cursor: row-resize; background: #2b2d30; border-top: 1px solid #111; border-bottom: 1px solid #111; touch-action: none; }
+  .splitter::after { content: ""; display: block; width: 36px; height: 2px; margin: 1px auto 0; border-radius: 1px; background: #4e5157; }
+  .splitter:hover, .splitter.dragging, .splitter:focus-visible { background: #3c3f41; outline: none; }
+  body.resizing { cursor: row-resize; user-select: none; }
 
   /* Output */
   .main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -117,6 +123,8 @@
     <div class="lbl" aria-hidden="true">Paste</div>
     <div id="paste" class="paste rendered" contenteditable="true" role="textbox" aria-label="Paste area" data-placeholder="Click here and paste (⌘V / Ctrl+V)"></div>
   </section>
+
+  <div id="splitter" class="splitter" role="separator" aria-orientation="horizontal" aria-label="Resize paste area" tabindex="0" title="Drag to resize · double-click to reset"></div>
 
   <main class="main">
     <div id="toolbar" class="tb" role="toolbar" aria-label="Formatting" hidden>
@@ -519,6 +527,53 @@ function openImageDialog() {
     (editing ? chain.updateAttributes('image', image) : chain.setImage(image)).run();
   });
 }
+
+// ===================== Paste / output drag bar =====================
+
+const DEFAULT_PASTE_HEIGHT = 120;
+const MIN_PASTE_HEIGHT = 40;
+const MIN_OUTPUT_HEIGHT = 120;
+const splitter = $('splitter');
+
+function setPasteHeight(px) {
+  // Leave room for the output pane (and the toolbar, drawer and bars around it).
+  const spare = document.querySelector('.main').getBoundingClientRect().height + pasteEl.getBoundingClientRect().height;
+  const height = Math.round(Math.max(MIN_PASTE_HEIGHT, Math.min(px, spare - MIN_OUTPUT_HEIGHT)));
+  document.documentElement.style.setProperty('--paste-height', `${height}px`);
+  splitter.setAttribute('aria-valuenow', String(height));
+  localStorage.setItem('pasteHeight', String(height));
+}
+
+splitter.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  splitter.setPointerCapture(e.pointerId);
+  const startY = e.clientY;
+  const startHeight = pasteEl.getBoundingClientRect().height;
+  splitter.classList.add('dragging');
+  document.body.classList.add('resizing');
+  const move = ev => setPasteHeight(startHeight + ev.clientY - startY);
+  const end = () => {
+    splitter.classList.remove('dragging');
+    document.body.classList.remove('resizing');
+    splitter.removeEventListener('pointermove', move);
+    splitter.removeEventListener('pointerup', end);
+    splitter.removeEventListener('pointercancel', end);
+  };
+  splitter.addEventListener('pointermove', move);
+  splitter.addEventListener('pointerup', end);
+  splitter.addEventListener('pointercancel', end);
+});
+splitter.addEventListener('dblclick', () => setPasteHeight(DEFAULT_PASTE_HEIGHT));
+splitter.addEventListener('keydown', e => {
+  const step = e.shiftKey ? 60 : 20;
+  const current = pasteEl.getBoundingClientRect().height;
+  if (e.key === 'ArrowUp') setPasteHeight(current - step);
+  else if (e.key === 'ArrowDown') setPasteHeight(current + step);
+  else return;
+  e.preventDefault();
+});
+window.addEventListener('resize', () => setPasteHeight(pasteEl.getBoundingClientRect().height));
+setPasteHeight(Number(localStorage.getItem('pasteHeight')) || DEFAULT_PASTE_HEIGHT);
 
 updateStatus();
 </script>

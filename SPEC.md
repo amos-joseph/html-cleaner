@@ -99,7 +99,7 @@ Everything not listed is stripped (`class`, `style`, `id`, `lang`, `dir`, `width
 A full-window, dark app-style layout (like a code editor). The page does not scroll; only the panes inside it do. From top to bottom:
 
 1. **App bar:** the app name and the Source/WYSIWYG toggle on the left. Re-clean, Clear, the Debug toggle, and **Copy HTML** (the primary, highlighted button) on the right.
-2. **Paste strip:** a short, fixed-height paste area with a small vertical "Paste" label, rendered on a white background.
+2. **Paste strip:** a short paste area (120px by default) with a small vertical "Paste" label, rendered on a white background. A drag bar between it and the output resizes it (double-click resets, arrow keys work when focused); the chosen height is remembered in `localStorage`, and the output always keeps at least 120px.
 3. **Output:** fills all remaining height. The WYSIWYG toolbar appears directly above it only in WYSIWYG view. Source view is dark and monospace; WYSIWYG view is rendered on white.
 4. **Debug drawer:** a fixed-height panel below the output showing the raw clipboard HTML, visible only while Debug is on.
 5. **Status bar:** a thin bar across the bottom showing the paste's detected source (Word, Google Docs, Web page, Plain text), the output's line and character counts, any warnings, and the current view.
