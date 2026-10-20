@@ -1,1 +1,0 @@
-I'd like to create javascript project that allows the user to paste content they've copied from a web page or word document and format the output into clean, basic HTML tags that match the general formatting of the original pasted content without needing to add CSS or style properties.  In fact, tag properties should be kept the bare minimum possible.
